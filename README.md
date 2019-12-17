@@ -9,7 +9,7 @@ The model can be used for research purposes under <a href="https://creativecommo
 ## Prerequisites
 The following packages are required to run the SyncNet demo:
 ```
-python (2.7.12)
+python3
 pytorch (0.4.0)
 numpy (1.14.3)
 scipy (1.0.1)
@@ -21,7 +21,7 @@ ffmpeg (3.4.2)
 
 In addition to above, these are required to run the full pipeline:
 ```
-tensorflow (1.2, 1.4)
+tensorflow (1.4)
 pyscenedetect (0.5) 
 ```
 
