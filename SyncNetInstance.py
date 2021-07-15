@@ -2,11 +2,11 @@
 #-*- coding: utf-8 -*-
 # Video 25 FPS, Audio 16000HZ
 
-import torch
 import numpy
 import time, pdb, argparse, subprocess, os
 import cv2
 import python_speech_features
+import torch
 
 from scipy import signal
 from scipy.io import wavfile
@@ -35,8 +35,11 @@ class SyncNetInstance(torch.nn.Module):
 
     def __init__(self, dropout = 0, num_layers_in_fc_layers = 1024):
         super(SyncNetInstance, self).__init__();
-
-        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).cuda();
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+        self.__S__ = S(num_layers_in_fc_layers = num_layers_in_fc_layers).to(self.device);
 
     def evaluate(self, opt, videofile):
 
