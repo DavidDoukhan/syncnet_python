@@ -31,7 +31,7 @@ cropped_files.sort()
 # ==================== GET OFFSETS ====================
 dists = []
 for idx, cropped_file_name in enumerate(cropped_files):
-    offset, conf, dist = s.evaluate(opt, videofile=cropped_file_name)
+    offset, conf, dist = s.evaluate(opt, cropped_video_file=cropped_file_name)
     dists.append(dist)
       
 # ==================== PRINT RESULTS TO FILE ====================

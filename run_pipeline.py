@@ -21,10 +21,7 @@ import pandas
 from SyncNetInstance import *
 import os.path
 from os import path
-
-# ========== ========== ========== ==========
-# # PARSE ARGS
-# ========== ========== ========== ==========
+from utils.get_ava_active_speaker_performance import run_evaluation
 
 parser = argparse.ArgumentParser(description = "FaceTracker");
 parser.add_argument('--initial_model', type=str, default="data/syncnet_v2.model")
@@ -192,7 +189,8 @@ def inference_video(opt):
 
 def scene_detect(opt):
 
-  video_manager = VideoManager([os.path.join(opt.avi_dir,opt.reference,'video.avi')])
+  video_path = os.path.join(opt.avi_dir,opt.reference,'video.avi')
+  video_manager = VideoManager([video_path])
   stats_manager = StatsManager()
   scene_manager = SceneManager(stats_manager)
   # Add ContentDetector algorithm (constructor takes detector options like threshold).
@@ -293,16 +291,17 @@ def evaluate_network():
   s.loadParameters(opt.initial_model);
   print("Model %s loaded." % opt.initial_model);
 
-  f = open(opt.ava_dir + '/csv/val_ids.csv', 'r')
+  f = open(opt.ava_dir + '/csv/video_ids.csv', 'r')
   video_names = [video_name[:-1] for video_name in f]
-  video_names = ['a5mEmM6w_ks.mkv']
+  #video_names = ['a5mEmM6w_ks.mkv']
   video_names = ['taubira.mp4']
+  #video_names = ['kMy-6RtoOVU.mkv']
+
   for video_name in video_names:
     delete_dirs()
     opt.reference = video_name.split('.')[0]
     create_dirs()
-    path = opt.ava_dir +'/orig_videos/trainval/' + video_name
-    #offset, confidence, dists = self.evaluate(args, path)
+    path = opt.ava_dir + opt.video_dir + video_name
     opt.videofile = path
     start = t.time()
     generate_face_scene_pckl_files() # creates  *.avi files
@@ -312,7 +311,7 @@ def evaluate_network():
     start = t.time()
     confidences = []
     for idx, cropped_file in enumerate(cropped_files):
-      offset, conf, dist = s.evaluate(opt, videofile=cropped_file)
+      offset, conf, dist = s.evaluate(opt, cropped_video_file=cropped_file)
       conf1 = conf.tolist()
       confidences.append(conf1)
     print('---------------- evaluate {} s.'.format(t.time() - start))
@@ -321,15 +320,17 @@ def evaluate_network():
 
 def generate_face_scene_pckl_files() :
 
-    # ========== CONVERT VIDEO AND EXTRACT FRAMES ==========
+    # ========== CONVERT VIDEO  ==========
     video_file = os.path.join(opt.avi_dir, opt.reference, 'video.avi')
     command = ("ffmpeg -y -i %s -qscale:v 2 -async 1 -r 25 %s" % ( opt.videofile, video_file))
     output = subprocess.call(command, shell=True, stdout=None)
 
+    # ========== EXTRACT FRAMES ==========
     file = os.path.join(opt.frames_dir, opt.reference, '%06d.jpg')
     command = ("ffmpeg -y -i %s -qscale:v 2 -threads 1 -f image2 %s" % (video_file , file))
     output = subprocess.call(command, shell=True, stdout=None)
 
+    # ========== extract audio ==========
     audio_file = os.path.join(opt.avi_dir, opt.reference, 'audio.wav')
     command = ("ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (video_file, audio_file))
     output = subprocess.call(command, shell=True, stdout=None)
@@ -357,7 +358,7 @@ def generate_face_scene_pckl_files() :
 
 def build_result_file(predScores):
 
-  evalOrig = opt.ava_dir + '/csv/val_orig.csv'
+  evalOrig = opt.ava_dir + '/csv/' + opt.ava_ref_file
   evalCsvSave = opt.result_dir + os.sep + 'val_res.csv'
   open(evalCsvSave, 'w').close() # creates evalCsvSave file if does not exist and empty it otherwise
   evalLines = open(evalOrig).read().splitlines()[1:]
@@ -371,16 +372,32 @@ def build_result_file(predScores):
   evalRes.to_csv(evalCsvSave, index=False)
   cmd = "python -O utils/get_ava_active_speaker_performance.py -g %s -p %s " % (evalOrig, evalCsvSave)
   computation  = subprocess.run(cmd, shell=True, capture_output=True)
-  mAP = float(str(computation.stdout).split(' ')[2][:5])
+  mAP, precision, recall = run_pipeline.compute_ava_perf(evalOrig, evalCsvSave)
+  return run_evaluation(evalOrig, evalCsvSave)
+  print('mAP: ', mAP)
 
+def compute_ava_perf2(val_orig, eval_csv_save):
+  mAP = run_evaluation(val_orig, eval_csv_save)
+  mAP, precision, recall = float(str(stdout).split(' ')[2][:5])
+  return mAP, precision, recall
+
+def compute_ava_perf(val_orig, eval_csv_save):
+  cmd = "python -O utils/get_ava_active_speaker_performance.py -g %s -p %s " % (val_orig, eval_csv_save)
+  stdout = subprocess.run(cmd, shell=True, capture_output=True, check=True).stdout
+  mAP, precision, recall = float(str(stdout).split(' ')[2][:5])
+  return mAP, precision, recall
 
 if __name__ == "__main__":
 
     if (opt.action == 'evaluate'):
       opt.ava_dir = '../AVA_talknet'
+      opt.video_dir = 'orig_videos/trainval/'  # can be test train, val
+      opt.ava_ref_file = 'val_orig.csv'
       evaluate_network()
     elif (opt.action == 'evaluate_lite'):
-      opt.ava_dir = '../AVA_talknet_lite'
+      opt.ava_dir = '../AVA_talknet_lite/'
+      opt.video_dir = 'orig_videos/test/' # can be test train, val
+      opt.ava_ref_file = 'val_orig.csv'
       evaluate_network()
     elif (opt.action == 'run_pipeline'):
       run_pipeline()

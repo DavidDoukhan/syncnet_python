@@ -22,4 +22,4 @@ opt = parser.parse_args();
 s = SyncNetInstance();
 s.loadParameters(opt.initial_model);
 print("Model %s loaded."%opt.initial_model);
-s.evaluate(opt, videofile=opt.videofile)
+s.evaluate(opt, cropped_video_file=opt.videofile)

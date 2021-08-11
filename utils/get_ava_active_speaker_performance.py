@@ -92,6 +92,7 @@ def eq(a, b, tolerance=1e-09):
 
 
 def merge_groundtruth_and_predictions(df_groundtruth, df_predictions):
+
   """Merges groundtruth and prediction DataFrames.
   The returned DataFrame is merged on uid field and sorted in descending order
   by score field. Bounding boxes are checked to make sure they match between
@@ -149,6 +150,7 @@ def get_all_positives(df_merged):
 
 
 def calculate_precision_recall(df_merged):
+
   """Calculates precision and recall arrays going through df_merged row-wise."""
   all_positives = get_all_positives(df_merged)
   # Populates each row with 1 if this row is a true positive
@@ -178,6 +180,7 @@ def calculate_precision_recall(df_merged):
 
 
 def run_evaluation(groundtruth, predictions):
+
   """Runs AVA Active Speaker evaluation, printing average precision result."""
   df_groundtruth = load_csv(
       groundtruth,
