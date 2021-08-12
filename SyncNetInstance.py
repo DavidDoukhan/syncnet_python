@@ -78,6 +78,7 @@ class SyncNetInstance(torch.nn.Module):
         min_length = min(len(images),math.floor(len(audio)/640))
         # Generate video and audio feats
         lastframe = min_length-5
+        lastframe = min_length # ADDED by ITHIU
         image_features = []
         cc_features = []
         tS = time.time()

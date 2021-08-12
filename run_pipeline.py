@@ -294,7 +294,7 @@ def evaluate_network():
   f = open(opt.ava_dir + '/csv/video_ids.csv', 'r')
   video_names = [video_name[:-1] for video_name in f]
   #video_names = ['a5mEmM6w_ks.mkv']
-  video_names = ['taubira.mp4']
+  video_names = ['taubira1.mp4']
   #video_names = ['kMy-6RtoOVU.mkv']
 
   for video_name in video_names:
