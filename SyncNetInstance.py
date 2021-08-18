@@ -72,23 +72,46 @@ class SyncNetInstance(torch.nn.Module):
         cct = torch.autograd.Variable(torch.from_numpy(cc.astype(float)).float())
 
         # Check audio and video input length
-        if (float(len(audio))/16000) != (float(len(images))/25) :
-            print("WARNING: Audio (%.4fs) and video (%.4fs) lengths are different."%(float(len(audio))/16000,float(len(images))/25))
+        img_nbr = len(images)
+        audio_nbr = len(audio)
+        if (float(audio_nbr)/16000) != (float(img_nbr)/25) :
+            print("WARNING: Audio (%.4fs) and video (%.4fs) lengths are different."%(float(audio_nbr)/16000,float(img_nbr)/25))
 
-        min_length = min(len(images),math.floor(len(audio)/640))
+        min_length = min(img_nbr,math.floor(audio_nbr/640))
         # Generate video and audio feats
         lastframe = min_length-5
         lastframe = min_length # ADDED by ITHIU
         image_features = []
         cc_features = []
         tS = time.time()
-        for i in range(0, lastframe,opt.batch_size):
-            im_batch = [ image_tv[:,:,vframe:vframe+5,:,:] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
+        for i in range(0, lastframe, opt.batch_size):
+            im_batch = []
+            end = min(lastframe, i + opt.batch_size)
+            for vframe in range(i, end):
+                if (vframe > lastframe - 5):
+                    #offset = 5 - (lastframe - vframe)
+                    #item = image_tv[:, :, vframe - offset:lastframe, :, :]
+                    item = image_tv[:, :, lastframe - 5:lastframe, :, :]
+                else:
+                    item = image_tv[:, :, vframe:vframe + 5, :, :]
+                im_batch.append(item)
+
             im_in = torch.cat(im_batch,0)
             im_out  = self.model.forward_lip(im_in.cuda());
             image_features.append(im_out.data.cpu())
 
-            cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
+            cc_batch = []
+            end = min(lastframe, i + opt.batch_size)
+            for vframe in range(i, end):
+                if (vframe > end - 20):
+                    #offset = 20 - (lastframe - vframe)
+                    real_end = cct.shape[3]
+                    item = cct[:, :, :, real_end - 20 : real_end]
+                    #item = cct[:, :, :, lastframe * 4 - 20: lastframe * 4]
+                else :
+                    item = cct[:, :, :, vframe*4 : vframe*4 + 20]
+                cc_batch.append(item)
+            #cc_batch = [ cct[:,:,:,vframe*4:vframe*4+20] for vframe in range(i,min(lastframe,i+opt.batch_size)) ]
             cc_in = torch.cat(cc_batch,0)
             cc_out  = self.model.forward_aud(cc_in.cuda())
             cc_features.append(cc_out.data.cpu())

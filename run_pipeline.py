@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import sys, time, os, pdb, argparse, pickle, subprocess, glob, cv2
 import numpy as np
 from shutil import rmtree
@@ -24,6 +23,8 @@ from os import path
 from utils.get_ava_active_speaker_performance import run_evaluation
 
 parser = argparse.ArgumentParser(description = "FaceTracker");
+parser.add_argument('--extract_video_with_faces', type=bool, default="True")
+
 parser.add_argument('--initial_model', type=str, default="data/syncnet_v2.model")
 parser.add_argument('--batch_size', type=int, default='20', help='')
 parser.add_argument('--vshift', type=int, default='15', help='')
@@ -178,6 +179,7 @@ def inference_video(opt):
       dets[-1].append({'frame':fidx, 'bbox':(bbox[:-1]).tolist(), 'conf':bbox[-1]})
     elapsed_time = time.time() - start_time
     print('%s-%05d; %d dets; %.2f Hz' % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),fidx,len(dets[-1]),(1/elapsed_time)))
+
   savepath = os.path.join(opt.work_dir,opt.reference,'faces.pckl')
   with open(savepath, 'wb') as fil:
     pickle.dump(dets, fil)
@@ -190,6 +192,7 @@ def inference_video(opt):
 def scene_detect(opt):
 
   video_path = os.path.join(opt.avi_dir,opt.reference,'video.avi')
+  print('video_path: ', video_path)
   video_manager = VideoManager([video_path])
   stats_manager = StatsManager()
   scene_manager = SceneManager(stats_manager)
@@ -245,14 +248,16 @@ def run_pipeline():
   delete_dirs()
   create_dirs()
 
-  # ========== CONVERT VIDEO AND EXTRACT FRAMES ==========
+  # ========== CONVERT VIDEO  ==========
   file = os.path.join(opt.avi_dir,opt.reference,'video.avi')
   command = ("ffmpeg -y -i %s -qscale:v 2 -async 1 -r 25 %s" % (opt.videofile, file))
   output = subprocess.call(command, shell=True, stdout=None)
 
+  # ========== EXTRACT FRAMES ==========
   command = ("ffmpeg -y -i %s -qscale:v 2 -threads 1 -f image2 %s" % (file, os.path.join(opt.frames_dir,opt.reference,'%06d.jpg')))
   output = subprocess.call(command, shell=True, stdout=None)
 
+  # ========== GET AUDIO ==========
   command = ("ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s" % (os.path.join(opt.avi_dir,opt.reference,'video.avi'),os.path.join(opt.avi_dir,opt.reference,'audio.wav')))
   output = subprocess.call(command, shell=True, stdout=None)
 
@@ -287,36 +292,51 @@ def run_pipeline():
 def evaluate_network():
 
   start = t.time()
+  delete_dirs()
+  create_dirs()
   s = SyncNetInstance();
   s.loadParameters(opt.initial_model);
   print("Model %s loaded." % opt.initial_model);
 
-  f = open(opt.ava_dir + '/csv/video_ids.csv', 'r')
-  video_names = [video_name[:-1] for video_name in f]
-  #video_names = ['a5mEmM6w_ks.mkv']
+  #f = open(opt.ava_dir + '/csv/video_ids.csv', 'r')
+  #video_names = [video_name[:-1] for video_name in f]
   video_names = ['taubira1.mp4']
-  #video_names = ['kMy-6RtoOVU.mkv']
 
   for video_name in video_names:
-    delete_dirs()
-    opt.reference = video_name.split('.')[0]
-    create_dirs()
-    path = opt.ava_dir + opt.video_dir + video_name
-    opt.videofile = path
+
+    #if opt.extract_video_with_faces:
+    #  run_pipeline()
+
     start = t.time()
-    generate_face_scene_pckl_files() # creates  *.avi files
+    opt.reference = video_name.split('.')[0]
+    opt.videofile = opt.ava_dir + os.sep + opt.video_dir + os.sep + video_name
+    start = t.time()
+    generate_face_scene_pckl_files()  # creates  *.avi files
     cropped_files = glob.glob(os.path.join(opt.crop_dir, opt.reference, '0*.avi'))
     cropped_files.sort()
-    print('---------------- Cropping took {} s.'.format(t.time()-start))
+    print('---------------- Cropping took {} s.'.format(t.time() - start))
     start = t.time()
     confidences = []
-    for idx, cropped_file in enumerate(cropped_files):
+
+    for idx, cropped_file in enumerate( cropped_files):
       offset, conf, dist = s.evaluate(opt, cropped_video_file=cropped_file)
       conf1 = conf.tolist()
       confidences.append(conf1)
     print('---------------- evaluate {} s.'.format(t.time() - start))
     build_result_file(confidences)
     print('evaluate_network took {} s'.format(t.time()-start))
+
+def extract_video_with_faces(video_name):
+  start = t.time()
+  #delete_dirs()
+  opt.reference = video_name.split('.')[0]
+  #create_dirs()
+  opt.videofile = opt.ava_dir + os.sep + opt.video_dir + os.sep + video_name
+  generate_face_scene_pckl_files()  # creates  *.avi files
+  cropped_files = glob.glob(os.path.join(opt.crop_dir, opt.reference, '0*.avi'))
+  cropped_files.sort()
+  print('---------------- Cropping took {} s.'.format(t.time() - start))
+  return cropped_files
 
 def generate_face_scene_pckl_files() :
 
@@ -372,7 +392,7 @@ def build_result_file(predScores):
   evalRes.to_csv(evalCsvSave, index=False)
   cmd = "python -O utils/get_ava_active_speaker_performance.py -g %s -p %s " % (evalOrig, evalCsvSave)
   computation  = subprocess.run(cmd, shell=True, capture_output=True)
-  mAP, precision, recall = run_pipeline.compute_ava_perf(evalOrig, evalCsvSave)
+  mAP, precision, recall = compute_ava_perf2(evalOrig, evalCsvSave)
   return run_evaluation(evalOrig, evalCsvSave)
   print('mAP: ', mAP)
 
@@ -390,6 +410,7 @@ def compute_ava_perf(val_orig, eval_csv_save):
 if __name__ == "__main__":
 
     if (opt.action == 'evaluate'):
+      opt.extract_video_with_faces = True
       opt.ava_dir = '../AVA_talknet'
       opt.video_dir = 'orig_videos/trainval/'  # can be test train, val
       opt.ava_ref_file = 'val_orig.csv'
