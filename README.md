@@ -44,7 +44,7 @@ Confidence:     10.021
 Full pipeline:
 ```
 sh download_model.sh
-python run_pipeline.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
+python run_pipeline.py --videofile data/taubira1.mp4 --reference taubira1--data_dir ~/TMP
 python run_syncnet.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
 python run_visualise.py --videofile /path/to/video.mp4 --reference name_of_video --data_dir /path/to/output
 ```

@@ -1,0 +1,4 @@
+python3 run_pipeline.py --action run_pipeline --videofile data/taubira.mp4 --reference taubira --data_dir ../TMP
+python3 run_syncnet.py --videofile data/taubira.mp4 --reference taubira --data_dir ../TMP
+python3 run_visualise.py --videofile data/taubira.mp4 --reference taubira --data_dir ../TMP
+
